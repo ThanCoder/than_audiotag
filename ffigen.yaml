@@ -1,0 +1,16 @@
+# Run with `dart run ffigen --config ffigen.yaml`.
+name: ThanAudiotagBindings
+description: |
+  Bindings for `src/than_audiotag.h`.
+
+  Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
+output: 'lib/than_audiotag_bindings_generated.dart'
+headers:
+  entry-points:
+    - 'src/tag_c.h'
+  include-directives:
+    - 'src/tag_c.h'
+ffi-native:
+comments:
+  style: any
+  length: full

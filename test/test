@@ -1,0 +1,302 @@
+import 'dart:typed_data';
+
+import 'package:than_audiotag/models/audio_properties.dart';
+import 'package:than_audiotag/models/audio_tag.dart';
+import 'package:than_audiotag/models/cover_art.dart';
+import 'package:than_audiotag/taglib/native/taglib_file.dart';
+import 'package:than_audiotag/taglib/native/taglib_picture.dart';
+
+import 'models/audio_properties.dart';
+import 'models/audio_tag.dart';
+import 'models/cover_art.dart';
+import 'native/taglib_file.dart';
+import 'native/taglib_picture.dart';
+
+class ThanAudioTag {
+  final String path;
+
+  final TagLibFile _file;
+  late final TagLibPicture _picture;
+
+  bool _closed = false;
+
+  ThanAudioTag._(
+    this.path,
+    this._file,
+  ) {
+    _picture = TagLibPicture(
+      _file.pointer,
+    );
+  }
+
+  factory ThanAudioTag.open(
+    String path,
+  ) {
+    final file = TagLibFile.open(path);
+
+    return ThanAudioTag._(
+      path,
+      file,
+    );
+  }
+
+  bool get isClosed => _closed;
+
+  AudioTag get tag {
+    _checkOpen();
+    return _file.readTag();
+  }
+
+  AudioProperties get properties {
+    _checkOpen();
+    return _file.readProperties();
+  }
+
+  List<CoverArt> get covers {
+    _checkOpen();
+    return _picture.readAll();
+  }
+
+  CoverArt? get cover {
+    _checkOpen();
+    return _picture.readFirst();
+  }
+
+  void updateTag({
+    String? title,
+    String? artist,
+    String? album,
+    String? genre,
+    String? comment,
+    int? track,
+    int? year,
+    bool save = true,
+  }) {
+    _checkOpen();
+
+    _file.writeTag(
+      title: title,
+      artist: artist,
+      album: album,
+      genre: genre,
+      comment: comment,
+      track: track,
+      year: year,
+    );
+
+    if (save) {
+      _file.save();
+    }
+  }
+
+  void replaceCovers(
+    List<CoverArt> covers, {
+    bool save = true,
+  }) {
+    _checkOpen();
+
+    _picture.replace(covers);
+
+    if (save) {
+      _file.save();
+    }
+  }
+
+  void writeCover(
+    Uint8List data, {
+    String mimeType = 'image/jpeg',
+    String description = '',
+    String pictureType = 'Front Cover',
+    bool save = true,
+  }) {
+    _checkOpen();
+
+    _picture.replace([
+      CoverArt(
+        data: data,
+        mimeType: mimeType,
+        description: description,
+        pictureType: pictureType,
+      ),
+    ]);
+
+    if (save) {
+      _file.save();
+    }
+  }
+
+  void appendCover(
+    Uint8List data, {
+    String mimeType = 'image/jpeg',
+    String description = '',
+    String pictureType = 'Front Cover',
+    bool save = true,
+  }) {
+    _checkOpen();
+
+    _picture.append(
+      CoverArt(
+        data: data,
+        mimeType: mimeType,
+        description: description,
+        pictureType: pictureType,
+      ),
+    );
+
+    if (save) {
+      _file.save();
+    }
+  }
+
+  void removeCovers({
+    bool save = true,
+  }) {
+    _checkOpen();
+
+    _picture.removeAll();
+
+    if (save) {
+      _file.save();
+    }
+  }
+
+  void save() {
+    _checkOpen();
+    _file.save();
+  }
+
+  void close() {
+    if (_closed) {
+      return;
+    }
+
+    _file.close();
+
+    _closed = true;
+  }
+
+  void dispose() {
+    close();
+  }
+
+  void _checkOpen() {
+    if (_closed) {
+      throw StateError(
+        'ThanAudioTag is already closed',
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Static convenience API
+  // ------------------------------------------------------------
+
+  static AudioTag read(
+    String path,
+  ) {
+    final audio = open(path);
+
+    try {
+      return audio.tag;
+    } finally {
+      audio.close();
+    }
+  }
+
+  static AudioProperties readProperties(
+    String path,
+  ) {
+    final audio = open(path);
+
+    try {
+      return audio.properties;
+    } finally {
+      audio.close();
+    }
+  }
+
+  static List<CoverArt> readCovers(
+    String path,
+  ) {
+    final audio = open(path);
+
+    try {
+      return audio.covers;
+    } finally {
+      audio.close();
+    }
+  }
+
+  static CoverArt? readCover(
+    String path,
+  ) {
+    final audio = open(path);
+
+    try {
+      return audio.cover;
+    } finally {
+      audio.close();
+    }
+  }
+
+  static void writeTags(
+    String path, {
+    String? title,
+    String? artist,
+    String? album,
+    String? genre,
+    String? comment,
+    int? track,
+    int? year,
+  }) {
+    final audio = open(path);
+
+    try {
+      audio.updateTag(
+        title: title,
+        artist: artist,
+        album: album,
+        genre: genre,
+        comment: comment,
+        track: track,
+        year: year,
+      );
+    } finally {
+      audio.close();
+    }
+  }
+
+  static void writeCover(
+    String path,
+    Uint8List data, {
+    String mimeType = 'image/jpeg',
+    String description = '',
+    String pictureType = 'Front Cover',
+  }) {
+    final audio = open(path);
+
+    try {
+      audio.writeCover(
+        data,
+        mimeType: mimeType,
+        description: description,
+        pictureType: pictureType,
+      );
+    } finally {
+      audio.close();
+    }
+  }
+
+  static void removeCovers(
+    String path,
+  ) {
+    final audio = open(path);
+
+    try {
+      audio.removeCovers();
+    } finally {
+      audio.close();
+    }
+  }
+}
+
