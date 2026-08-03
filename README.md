@@ -8,6 +8,23 @@ A lightweight Dart FFI wrapper around **TagLib** for reading and writing audio m
 
 `ThanAudioTag` is designed for Dart and Flutter applications that need native metadata access without parsing media files entirely in Dart.
 
+`than_audiotag` uses **TagLib 2.3.1**, a C++ library designed for reading and writing metadata in audio and media files.
+
+The package provides a Dart-friendly API through **Dart FFI** and a native C-compatible wrapper around TagLib.
+
++ [x] [Powered by TagLib](#powered-by-taglib)
++ [x] [Android Dependency](#android-dependency)
++ [x] [Important Notes](#important-notes)
++ [x] [Architecture](#architecture)
++ [x] [Basic Usage](#basic-usage)
++ [x] [Complete Example](#complete-example)
++ [x] [Design Goals](#design-goals)
++ [x] [Error Handling](#error-handling)
++ [x] [example-reading-a-music-file](#example-reading-a-music-file)
++ [x] [example-writing-cover-artwork](#example-writing-cover-artwork)
++ [x] [Features](#features)
+
+
 ## Features
 
 * Read common audio metadata
@@ -42,6 +59,9 @@ Add the package to your `pubspec.yaml`:
 ```yaml
 dependencies:
   than_audio_tag: ^<version>
+  
+  //need for android
+  android_libcpp_shared: ^<version>
 ```
 
 Then run:
@@ -509,6 +529,58 @@ It is intended for tasks such as:
 * Building media library applications
 
 For media decoding, playback, transcoding, thumbnails, or detailed stream analysis, use a dedicated media framework.
+
+### Powered by TagLib
+
+`than_audiotag` uses **TagLib 2.3.1**, a C++ library designed for reading and writing metadata in audio and media files.
+
+The package provides a Dart-friendly API through **Dart FFI** and a native C-compatible wrapper around TagLib.
+
+```text
+Dart / Flutter
+      │
+      │ Dart FFI
+      ▼
+than_audiotag
+      │
+      │ C-compatible API
+      ▼
+TagLib 2.3.1
+      │
+      ▼
+Audio / Media Files
+```
+
+TagLib handles the native parsing and metadata operations, while `than_audiotag` provides a simple Dart API for applications.
+
+This allows Dart and Flutter applications to work with features such as:
+
+* Audio metadata
+* Audio properties
+* Embedded cover artwork
+* Metadata writing
+
+> `than_audiotag` uses TagLib 2.3.1 internally. TagLib is a separate third-party C++ library and is subject to its own license.
+
+
+### Android Dependency
+
+When using `than_audio_tag` on Android, you must also add the [`android_libcpp_shared`](https://pub.dev/packages/android_libcpp_shared) package as a dependency.
+
+`than_audio_tag` uses native C/C++ libraries through Dart FFI. On Android, the native TagLib library depends on the Android C++ shared runtime library (`libc++_shared.so`).
+
+Add both packages to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  than_audio_tag: ^<version>
+  android_libcpp_shared: ^<version>
+```
+
+The `android_libcpp_shared` package provides the required `libc++_shared.so` native library for Android architectures.
+
+> **Android only:** `android_libcpp_shared` is required when using `than_audio_tag` on Android. It is not required for other platforms.
+
 
 ---
 
