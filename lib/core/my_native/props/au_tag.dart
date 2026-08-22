@@ -1,5 +1,5 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-part of 't_tag.dart';
+part of '../t_tag.dart';
 
 class AuTag {
   final String title;
@@ -20,11 +20,12 @@ class AuTag {
   });
 
   factory AuTag.fromPointerTag(Pointer<TagLib_Tag> tag) {
-    final title = _lib.taglib_tag_title(tag).cast<Utf8>().toDartString();
-    final artist = _lib.taglib_tag_artist(tag).cast<Utf8>().toDartString();
-    final album = _lib.taglib_tag_album(tag).cast<Utf8>().toDartString();
-    final comment = _lib.taglib_tag_comment(tag).cast<Utf8>().toDartString();
-    final genre = _lib.taglib_tag_genre(tag).cast<Utf8>().toDartString();
+    final title = _getStringOr(_lib.taglib_tag_title(tag));
+    final artist = _getStringOr(_lib.taglib_tag_artist(tag));
+    final album = _getStringOr(_lib.taglib_tag_album(tag));
+    final comment = _getStringOr(_lib.taglib_tag_comment(tag));
+    final genre = _getStringOr(_lib.taglib_tag_genre(tag));
+
     final track = _lib.taglib_tag_track(tag);
     final year = _lib.taglib_tag_year(tag);
 
@@ -37,6 +38,11 @@ class AuTag {
       track: track,
       year: year,
     );
+  }
+
+  static String _getStringOr(Pointer<Char> ptr) {
+    if (ptr == nullptr) return '';
+    return ptr.cast<Utf8>().toDartString();
   }
 
   Result<AuTag, String> updateTag(Pointer<TagLib_Tag> tagPtr) {
@@ -60,7 +66,7 @@ class AuTag {
       final genrePtr = genre.toNativeUtf8();
       _lib.taglib_tag_set_genre(tagPtr, genrePtr.cast<Char>());
       malloc.free(genrePtr);
-      
+
       // int
       _lib.taglib_tag_set_track(tagPtr, track);
       _lib.taglib_tag_set_year(tagPtr, year);

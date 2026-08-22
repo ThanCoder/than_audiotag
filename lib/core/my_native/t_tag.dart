@@ -1,24 +1,20 @@
-//tag binding
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:than_audiotag/core/my_native/result_t.dart';
-import 'package:than_audiotag/core/my_native/types.dart';
+import 'package:than_audiotag/core/my_native/props/types.dart';
 import 'package:than_audiotag/than_audiotag.dart';
 import 'package:than_audiotag/than_audiotag_bindings_generated.dart';
 
-part 'au_tag.dart';
-part 'au_properties.dart';
-part 'au_picture.dart';
+part 'props/au_tag.dart';
+part 'props/au_properties.dart';
+part 'props/au_picture.dart';
 part 'tag_utils.dart';
-part 'au_picture_writer.dart';
+part 'props/au_picture_writer.dart';
 
-final _lib = getTag(
-  // libPath:
-  //     '/home/thancoder/projects/dart_plugins/than_audiotag/src/lib/linux-64/libtag.so',
-);
+final _lib = getTag();
 
 class TTag {
   bool _opened = false;

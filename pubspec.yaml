@@ -1,6 +1,6 @@
 name: than_audiotag
 description: "A Dart FFI package for reading and writing audio metadata, audio properties, and embedded cover artwork using TagLib."
-version: 0.2.0
+version: 0.3.0
 repository: https://github.com/ThanCoder/than_audiotag.git
 
 

@@ -1,4 +1,4 @@
-part of 't_tag.dart';
+part of '../t_tag.dart';
 
 class AuPictureWriter {
   static Result<bool, String> writeAndSave(

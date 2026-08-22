@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:than_audiotag/core/my_native/props/types.dart';
 import 'package:than_audiotag/core/my_native/t_tag.dart';
-import 'package:than_audiotag/core/my_native/types.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

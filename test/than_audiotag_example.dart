@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, unused_local_variable, unused_import
+// ignore_for_file: unnecessary_brace_in_string_interps, avoid_print, unused_local_variable, unused_import
 
 import 'dart:ffi';
 import 'dart:io';
@@ -15,7 +15,7 @@ final lib = getTag(
       '/home/thancoder/projects/dart_plugins/than_audiotag/src/lib/linux-64/libtag.so',
 );
 
-void main() {
+void main() async {
   // final name =
   //     "《芒种》音阙诗听⧸赵方婧 官方高画质 Official HD MV丨Grain in Ear丨Mang Chủng [q2WvTaqe9zU].opus";
   final name = "Imagine dragons - BABA YAGA (Original Lyric video).mp3";
@@ -34,69 +34,118 @@ void main() {
     final nameParts = name.split('.');
     nameParts.removeLast();
     final nameOnly = nameParts.join('.');
+    final outpath = '${outDir.path}/$nameOnly.jpg';
 
-    final t = TTag();
-    final res = t.openFile(f.path);
+    final res = await TagPictureWorker.instance.generate(f.path, outpath);
     if (res.isErr) {
-      print('Error: ${res.unwrapError()} - $nameOnly');
-      continue;
+      print('Error: ${res.unwrapError()} - ${nameOnly}');
+    } else {
+      print('Success: ${res.unwrap()}');
     }
-    final pRes = t.savePicture('${outDir.path}/$nameOnly.jpg');
-    if (pRes.isErr) {
-      print('write: ${pRes.unwrapError()} - ${nameOnly.substring(0, 30)}');
-    }
-
-    t.close();
-
-    print(nameOnly);
   }
 }
 
-void testPro(String path) {
-  final tag = TTag();
+void testWrite(String path) {
+  // final myTag = TTag();
 
-  final tagRes = tag.openFile(path);
-  if (tagRes.isErr) {
-    print('Error: ${tagRes.unwrapError()}');
-    return;
-  }
-
-  print(tag.tag);
-
-  final prosRes = tag.readProperties;
-  if (prosRes.isErr) {
-    tag.close();
-    print('prosRes: ${prosRes.unwrapError()}');
-    return;
-  }
-  print('props: ${prosRes.unwrap()}');
-
-  // final picRes = tag.readPicture;
-  // if (picRes.isErr) {
-  //   tag.close();
-  //   print('picRes: ${picRes.unwrapError()}');
+  // final myTagRes = myTag.openFile(path); //Result<bool, AudioTagError>
+  // if (myTagRes.isErr) {
+  //   print('Error: ${myTagRes.unwrapError()}'); //AudioTagError
   //   return;
   // }
-  // print('picRes: ${picRes.unwrap()}');
 
-  // update
-  // final upRes = tag.updateTagAndSave(tag.tag.copyWith(title: 'test one'));
+  // // write tag
 
-  // if (upRes.isErr) {
-  //   print('save error: ${upRes.unwrapError()}');
-  // } else {
-  //   print('update tag');
+  // //myTag.updateTagAndSave
+  // final updateTagRes = myTag.updateTag(
+  //   //Result<AuTag, String>
+  //   AuTag(
+  //     title: title,
+  //     artist: artist,
+  //     album: album,
+  //     comment: comment,
+  //     genre: genre,
+  //     track: track,
+  //     year: year,
+  //   ),
+  // );
+  // //you can save
+  // // myTag.save();
+
+  // myTag.removePicture(); //Result<bool, String>
+
+  // final wpdRes = myTag.writePictureData(
+  //   // Result<bool, String>
+  //   AuPicture(
+  //     description: description,
+  //     mimeType: mimeType,
+  //     pictureType: pictureType,
+  //     data: data,
+  //   ),
+  // );
+  // if (wpdRes.isOk) {
+  //   print('writed');
   // }
-  final p = '/home/thancoder/Pictures/reader-logo.jpeg';
-  // final pRes = tag.removePictureAndSave();
-  // if (pRes.isErr) {
-  //   print(pRes.unwrapError());
+
+  // final wppRes = myTag.writePicturePath('[picturePath]'); //Result<bool, String>
+  // if (wppRes.isErr) {
+  //   print('write error: ${wppRes.unwrapError()}');
   // }
-  final pRes = tag.savePicture('test2.png');
-  if (pRes.isErr) {
-    print(pRes.unwrapError());
+
+  // myTag.close(); //free memory
+}
+
+void testPro(String path) {
+  final myTag = TTag();
+
+  final myTagRes = myTag.openFile(path); //Result<bool, AudioTagError>
+  if (myTagRes.isErr) {
+    print('Error: ${myTagRes.unwrapError()}'); //AudioTagError
+    return;
   }
-  tag.close();
+
+  final tagRes = myTag.tag; //Result<AuTag, String>
+  if (tagRes.isErr) {
+    myTag.close(); //free memory
+    return;
+  }
+  final tag = tagRes.unwrap(); //AuTag
+  // success
+  print(tag.title);
+  print(tag.album);
+  print(tag.artist);
+  print(tag.comment);
+  print(tag.genre);
+  print(tag.track);
+  print(tag.year);
+
+  final prosRes = myTag.readProperties; //Result<AuProperties, AudioTagError>
+  if (prosRes.isErr) {
+    myTag.close(); //free memory
+    print('prosRes: ${prosRes.unwrapError()}'); //AudioTagError
+    return;
+  }
+  final props = prosRes.unwrap(); //AuProperties
+
+  print(props.bitrate);
+  print(props.channels);
+  print(props.duration);
+  print(props.samplerate);
+
+  final picRes = myTag.readPicture;
+  if (picRes.isErr) {
+    myTag.close(); //free memory
+    print('picRes: ${picRes.unwrapError()}'); //AudioTagError
+    return;
+  }
+  final pic = picRes.unwrap(); // AuPicture
+  print(pic.pictureType);
+  print(pic.mimeType);
+  print(pic.description);
+  print(pic.data); //Uint8List
+
+  /// tag free
+  myTag.close(); //free memory
 }
 
 void testLib(String path) {

@@ -10,17 +10,9 @@ A lightweight Dart FFI wrapper around **TagLib** for reading and writing audio m
 
 The package provides a Dart-friendly API through **Dart FFI** and a native C-compatible wrapper around TagLib.
 
-* [x] [Powered by TagLib](#powered-by-taglib)
-* [x] [Android Dependency](#android-dependency)
-* [x] [Important Notes](#important-notes)
-* [x] [Architecture](#architecture)
-* [x] [Basic Usage](#basic-usage)
-* [x] [Complete Example](#complete-example)
-* [x] [Design Goals](#design-goals)
-* [x] [Error Handling](#error-handling)
-* [x] [example-reading-a-music-file](#example-reading-a-music-file)
-* [x] [example-writing-cover-artwork](#example-writing-cover-artwork)
-* [x] [Features](#features)
+* [x] [Tag Picture Worker](#tag-picture-worker) New!
+* [x] [Basic Usage New Version](#basic-usage-new-version) New!
+* [x] [Tag Write Example](#tag-write-example) New!
 
 ## Features
 
@@ -75,10 +67,111 @@ flutter pub get
 
 ---
 
-## New Class
+## Basic Usage New Version
 
 ```dart
+final myTag = TTag(); //new instance
 
+  final myTagRes = myTag.openFile(path); //Result<bool, AudioTagError>
+  if (myTagRes.isErr) {
+    print('Error: ${myTagRes.unwrapError()}'); //AudioTagError
+    return;
+  }
+
+  final tagRes = myTag.tag; //Result<AuTag, String>
+  if (tagRes.isErr) {
+    myTag.close(); //free memory
+    return;
+  }
+  final tag = tagRes.unwrap(); //AuTag
+  // success
+  print(tag.title);
+  print(tag.album);
+  print(tag.artist);
+  print(tag.comment);
+  print(tag.genre);
+  print(tag.track);
+  print(tag.year);
+
+  final prosRes = myTag.readProperties; //Result<AuProperties, AudioTagError>
+  if (prosRes.isErr) {
+    myTag.close(); //free memory
+    print('prosRes: ${prosRes.unwrapError()}'); //AudioTagError
+    return;
+  }
+  final props = prosRes.unwrap(); //AuProperties
+
+  print(props.bitrate);
+  print(props.channels);
+  print(props.duration);
+  print(props.samplerate);
+
+  final picRes = myTag.readPicture;
+  if (picRes.isErr) {
+    myTag.close(); //free memory
+    print('picRes: ${picRes.unwrapError()}'); //AudioTagError
+    return;
+  }
+  final pic = picRes.unwrap(); // AuPicture
+  print(pic.pictureType);
+  print(pic.mimeType);
+  print(pic.description);
+  print(pic.data); //Uint8List
+
+  /// tag free
+  myTag.close(); //free memory
+```
+
+### Tag Write Example
+
+```dart
+final myTag = TTag();
+
+  final myTagRes = myTag.openFile(path); //Result<bool, AudioTagError>
+  if (myTagRes.isErr) {
+    print('Error: ${myTagRes.unwrapError()}'); //AudioTagError
+    return;
+  }
+
+  // write tag
+
+  //myTag.updateTagAndSave
+  final updateTagRes = myTag.updateTag(
+    //Result<AuTag, String>
+    AuTag(
+      title: title,
+      artist: artist,
+      album: album,
+      comment: comment,
+      genre: genre,
+      track: track,
+      year: year,
+    ),
+  );
+  //you can save
+  // myTag.save();
+
+  myTag.removePicture(); //Result<bool, String>
+
+  final wpdRes = myTag.writePictureData(
+    // Result<bool, String>
+    AuPicture(
+      description: description,
+      mimeType: mimeType,
+      pictureType: pictureType,
+      data: data,
+    ),
+  );
+  if (wpdRes.isOk) {
+    print('writed');
+  }
+
+  final wppRes = myTag.writePicturePath('[picturePath]'); //Result<bool, String>
+  if (wppRes.isErr) {
+    print('write error: ${wppRes.unwrapError()}');
+  }
+
+  myTag.close(); //free memory
 ```
 
 ## Basic Usage
@@ -243,6 +336,51 @@ or:
 
 ```dart
 mimeType: 'image/jpeg'
+```
+
+---
+
+### Tag Picture Worker
+
+```dart
+class ThumbPage extends StatelessWidget {
+  const ThumbPage({super.key, required this.list});
+  final List<String> list;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Thumb Page')),
+      body: GridView.builder(
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
+        ),
+        itemCount: list.length,
+        itemBuilder: (context, index) => item(list[index]),
+      ),
+    );
+  }
+
+  Widget item(String path) {
+    return FutureBuilder(
+      future: TagPictureWorker.instance.getImageBytes(path),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == .waiting) {
+          return Center(child: CircularProgressIndicator.adaptive());
+        }
+        final data = snapshot.data;
+        if (data != null) {
+          if (data.isErr) {
+            return Text('Error: ${data.unwrapError()}');
+          }
+          return Image.memory(data.unwrap());
+        }
+
+        return Text('Unkown Error:');
+      },
+    );
+  }
+}
 ```
 
 ---

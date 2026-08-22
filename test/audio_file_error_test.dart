@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:than_audiotag/core/my_native/t_tag.dart';
-import 'package:than_audiotag/core/my_native/types.dart';
+import 'package:than_audiotag/core/my_native/props/types.dart';
 
 void main() {
   late TTag tag;
