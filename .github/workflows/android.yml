@@ -1,0 +1,53 @@
+name: Build Android Native Libraries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TagLib Source
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      - name: Build TagLib
+        run: |
+          # Ubuntu runner မှာ built-in ပါပြီးသား NDK path ကို သုံးပါသည်
+          NDK_PATH=$ANDROID_NDK_LATEST_HOME
+          
+          mkdir build-${{ matrix.abi }}
+          cd build-${{ matrix.abi }}
+          cmake ../taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-21 \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+
+      - name: Organize Output
+        run: |
+          mkdir -p output/${{ matrix.abi }}
+          find build-${{ matrix.abi }} -name "*.so" -exec cp {} output/${{ matrix.abi }}/ \;
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.abi }}
+          path: output/

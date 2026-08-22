@@ -1,0 +1,44 @@
+name: Build Windows Native Library
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TagLib Source
+        shell: bash
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      - name: Build TagLib
+        shell: bash
+        run: |
+          cmake -B build -S taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      - name: Organize Output
+        shell: bash
+        run: |
+          mkdir -p output/windows
+          find build -name "*.dll" -exec cp {} output/windows/ \;
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: output/windows/

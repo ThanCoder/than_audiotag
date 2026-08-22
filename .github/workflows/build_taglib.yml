@@ -1,0 +1,234 @@
+name: Build TagLib Native Binaries for All Platforms
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # =========================================================================
+  # 1. Android Cross-Compilation Job (NDK Multi-Arch .so Files)
+  # =========================================================================
+  build-android:
+    name: Build Android (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86, x86_64]
+        include:
+          - abi: arm64-v8a
+            api_level: 21
+          - abi: armeabi-v7a
+            api_level: 21
+          - abi: x86
+            api_level: 21
+          - abi: x86_64
+            api_level: 21
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ပြင်ဆင်ထားသည်: Correct NDK Setup Action
+      - name: Setup Android NDK
+        uses: nkmr-jp/setup-ndk-action@v1
+        with:
+          ndk-version: r25c
+
+      - name: Checkout TagLib Source
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      # ပြင်ဆင်ထားသည်: -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ထည့်ထားသည်
+      - name: Build TagLib for Android
+        run: |
+          mkdir build-${{ matrix.abi }}
+          cd build-${{ matrix.abi }}
+          cmake ../taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-${{ matrix.api_level }} \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+
+      - name: Organize Android Output
+        run: |
+          mkdir -p output/android/${{ matrix.abi }}
+          cp build-${{ matrix.abi }}/taglib/libtag.so output/android/${{ matrix.abi }}/ 2>/dev/null || true
+          if [ -f build-${{ matrix.abi }}/taglib/c/libtag_c.so ]; then
+            cp build-${{ matrix.abi }}/taglib/c/libtag_c.so output/android/${{ matrix.abi }}/
+          fi
+
+      - name: Upload Android Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.abi }}
+          path: output/android/
+
+  # =========================================================================
+  # 2. iOS Cross-Compilation Job (XCFramework for Device + Simulator)
+  # =========================================================================
+  build-ios:
+    name: Build iOS XCFramework
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TagLib Source
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      - name: Build iOS Device (arm64)
+        run: |
+          mkdir build-ios-device
+          cd build-ios-device
+          cmake ../taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES="arm64" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Build iOS Simulator (arm64 & x86_64 Universal)
+        run: |
+          mkdir build-ios-sim
+          cd build-ios-sim
+          cmake ../taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Create iOS XCFramework
+        run: |
+          mkdir -p output/ios
+          xcodebuild -create-xcframework \
+            -library build-ios-device/taglib/libtag.a \
+            -headers taglib-src/taglib \
+            -library build-ios-sim/taglib/libtag.a \
+            -headers taglib-src/taglib \
+            -output output/ios/TagLib.xcframework
+
+      - name: Upload iOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-xcframework
+          path: output/ios/
+
+  # =========================================================================
+  # 3. Desktop (Windows, macOS, Linux) Compilation Job
+  # =========================================================================
+  build-desktop:
+    name: Build Desktop (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+            output_file: build/taglib/libtag.so
+            artifact_dir: output/linux/
+          - os: windows-latest
+            target: windows-x64
+            output_file: build/taglib/Release/tag.dll
+            artifact_dir: output/windows/
+          - os: macos-latest
+            target: macos-universal
+            output_file: build/taglib/libtag.dylib
+            artifact_dir: output/macos/
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TagLib Source
+        shell: bash
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      # ပြင်ဆင်ထားသည်: -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ထည့်ထားသည်
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -B build -S taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ matrix.cmake_flags }}
+
+      - name: Build Desktop Binaries
+        shell: bash
+        run: cmake --build build --config Release
+
+      - name: Organize Desktop Output
+        shell: bash
+        run: |
+          mkdir -p ${{ matrix.artifact_dir }}
+          cp ${{ matrix.output_file }} ${{ matrix.artifact_dir }}
+
+      - name: Upload Desktop Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: ${{ matrix.artifact_dir }}
+
+  # =========================================================================
+  # 4. Bundle & Create GitHub Release
+  # =========================================================================
+  create-release:
+    name: Create GitHub Release with Binaries
+    needs: [build-android, build-ios, build-desktop]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download All Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Structure Flutter Plugin Native Files & Archive
+        run: |
+          mkdir -p release-bundle/android/src/main/jniLibs
+          mkdir -p release-bundle/ios
+          mkdir -p release-bundle/macos
+          mkdir -p release-bundle/windows
+          mkdir -p release-bundle/linux
+
+          cp -r all-artifacts/android-arm64-v8a/* release-bundle/android/src/main/jniLibs/ 2>/dev/null || true
+          cp -r all-artifacts/android-armeabi-v7a/* release-bundle/android/src/main/jniLibs/ 2>/dev/null || true
+          cp -r all-artifacts/android-x86/* release-bundle/android/src/main/jniLibs/ 2>/dev/null || true
+          cp -r all-artifacts/android-x86_64/* release-bundle/android/src/main/jniLibs/ 2>/dev/null || true
+
+          cp -r all-artifacts/ios-xcframework/* release-bundle/ios/
+
+          cp -r all-artifacts/desktop-linux-x64/* release-bundle/linux/ 2>/dev/null || true
+          cp -r all-artifacts/desktop-windows-x64/* release-bundle/windows/ 2>/dev/null || true
+          cp -r all-artifacts/desktop-macos-universal/* release-bundle/macos/ 2>/dev/null || true
+
+          cd release-bundle
+          zip -r ../taglib-flutter-native-binaries.zip .
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: taglib-flutter-native-binaries.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

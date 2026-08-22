@@ -1,0 +1,46 @@
+name: Build iOS Native Library
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    name: Build iOS Static Library
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TagLib Source
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      - name: Build TagLib for iOS
+        run: |
+          mkdir build-ios
+          cd build-ios
+          cmake ../taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES="arm64" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Organize Output
+        run: |
+          mkdir -p output/ios
+          find build-ios -name "*.a" -exec cp {} output/ios/ \;
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-arm64
+          path: output/ios/

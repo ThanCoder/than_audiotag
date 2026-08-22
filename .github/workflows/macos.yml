@@ -1,0 +1,42 @@
+name: Build macOS Native Library
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS Universal
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout TagLib Source
+        run: git clone --depth 1 --branch v1.13.1 https://github.com/taglib/taglib.git taglib-src
+
+      - name: Build TagLib
+        run: |
+          cmake -B build -S taglib-src \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(sysctl -n hw.ncpu)
+
+      - name: Organize Output
+        run: |
+          mkdir -p output/macos
+          find build -name "*.dylib" -exec cp {} output/macos/ \;
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: output/macos/
