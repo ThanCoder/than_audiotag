@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:than_audiotag_example/thumb_page.dart';
+import 'package:than_pkg/than_pkg.dart';
 
 void main() {
   runApp(MaterialApp(home: const MyApp()));
@@ -25,14 +26,27 @@ class _MyAppState extends State<MyApp> {
   FloatingActionButton _btn() {
     return FloatingActionButton(
       onPressed: () async {
-        final dir = Directory('/home/thancoder/Downloads/Music');
-
+        if (Platform.isAndroid) {
+          if (!await ThanPkg.platform.isStoragePermissionGranted()) {
+            await ThanPkg.platform.requestStoragePermission();
+            return;
+          }
+        }
+        String path = Platform.isAndroid
+            ? '/storage/emulated/0/Music'
+            : '/home/thancoder/Downloads/Music';
+        final dir = Directory(path);
+        final exts = ['mp3', 'm4a', 'opus'];
         final list = <String>[];
         for (var f in dir.listSync()) {
-          if (f is File) {
+          final name = f.path.split('/').last;
+          print('name: $name');
+          if (f is File && exts.any((e) => name.endsWith('.$e'))) {
             list.add(f.path);
           }
         }
+        print(list);
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => ThumbPage(list: list)),

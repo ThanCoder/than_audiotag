@@ -17,9 +17,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    # -----------------------------------------------------------------------
+    # Checkout
+    # -----------------------------------------------------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
+    # -----------------------------------------------------------------------
+    # Clone TagLib
+    # -----------------------------------------------------------------------
     - name: Clone TagLib
       shell: bash
       run: |
@@ -30,6 +36,9 @@ jobs:
           https://github.com/taglib/taglib.git \
           taglib-src
 
+    # -----------------------------------------------------------------------
+    # Configure
+    # -----------------------------------------------------------------------
     - name: Configure
       shell: bash
       run: |
@@ -39,11 +48,17 @@ jobs:
           -G "Visual Studio 18 2026" \
           -A x64 \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
           -DBUILD_SHARED_LIBS=OFF \
           -DBUILD_BINDINGS=ON \
           -DBUILD_TESTING=OFF \
-          -DBUILD_EXAMPLES=OFF
+          -DBUILD_EXAMPLES=OFF \
+          -DCMAKE_C_FLAGS="/O1" \
+          -DCMAKE_CXX_FLAGS="/O1"
 
+    # -----------------------------------------------------------------------
+    # Build TagLib + C bindings
+    # -----------------------------------------------------------------------
     - name: Build
       shell: bash
       run: |
@@ -52,10 +67,13 @@ jobs:
           --config MinSizeRel \
           --parallel
 
-    - name: Find build outputs
+    # -----------------------------------------------------------------------
+    # Show build outputs
+    # -----------------------------------------------------------------------
+    - name: Show build outputs
       shell: pwsh
       run: |
-        Write-Host "=== Static libraries ==="
+        Write-Host "=== Libraries produced by TagLib ==="
 
         Get-ChildItem `
           -Path build `
@@ -63,6 +81,9 @@ jobs:
           -Include *.lib,*.dll `
           | Select-Object FullName
 
+    # -----------------------------------------------------------------------
+    # Create release directory
+    # -----------------------------------------------------------------------
     - name: Create release directory
       shell: pwsh
       run: |
@@ -71,18 +92,66 @@ jobs:
           -Force `
           -Path release/windows/x86_64
 
-    - name: Show TagLib C binding
+    # -----------------------------------------------------------------------
+    # Link final DLL
+    #
+    # tag_c.lib = C binding
+    # tag.lib   = TagLib
+    #
+    # Both are statically linked into ONE tag.dll.
+    # -----------------------------------------------------------------------
+    - name: Link tag.dll
+      shell: cmd
+      run: |
+        call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+
+        link.exe ^
+          /DLL ^
+          /OUT:release\windows\x86_64\tag.dll ^
+          /WHOLEARCHIVE:build\bindings\c\MinSizeRel\tag_c.lib ^
+          /WHOLEARCHIVE:build\taglib\MinSizeRel\tag.lib ^
+          build\bindings\c\MinSizeRel\tag_c.lib ^
+          build\taglib\MinSizeRel\tag.lib ^
+          /LIBPATH:build\bindings\c\MinSizeRel ^
+          /LIBPATH:build\taglib\MinSizeRel
+
+    # -----------------------------------------------------------------------
+    # Check DLL
+    # -----------------------------------------------------------------------
+    - name: Check DLL
       shell: pwsh
       run: |
-        Get-ChildItem `
-          -Path build `
-          -Recurse `
-          -Include tag_c.lib,libtag.lib `
-          | Select-Object FullName
+        $dll = "release/windows/x86_64/tag.dll"
 
-    - name: Upload build artifact
+        if (!(Test-Path $dll)) {
+          Write-Error "tag.dll was not created"
+          exit 1
+        }
+
+        Write-Host "=== Final DLL ==="
+        Get-Item $dll | Select-Object FullName, Length
+
+    # -----------------------------------------------------------------------
+    # Check exported symbols
+    # Windows equivalent of:
+    #   nm -D --defined-only libtag.so | grep tag_
+    # -----------------------------------------------------------------------
+    - name: Check exported symbols
+      shell: cmd
+      run: |
+        echo === Exported symbols ===
+        dumpbin /EXPORTS release\windows\x86_64\tag.dll
+
+        echo.
+        echo === tag_ symbols ===
+        dumpbin /EXPORTS release\windows\x86_64\tag.dll | findstr /R /C:"tag_"
+
+    # -----------------------------------------------------------------------
+    # Upload ONLY final DLL
+    # -----------------------------------------------------------------------
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: taglib-windows-x86_64-build
-        path: |
-          build/**/*.lib
+        name: taglib-windows-x86_64
+        path: release/windows/x86_64/tag.dll
+        if-no-files-found: error
