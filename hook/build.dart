@@ -21,9 +21,17 @@ void main(List<String> args) async {
       await extractLib(zipPath, file);
     } else if (targetOS == .android) {
       if (targetArchitecture == .arm) {
+        final zipPath = srcLib.join('android').join('armeabi-v7a.zip');
+        file = File(
+          assets.join('android').join('armeabi-v7a').join('libtag.so'),
+        );
+        await extractLib(zipPath, file);
+
         file = File(srcLib.join('android').join('arm').join('libtag.so'));
       } else if (targetArchitecture == .arm64) {
-        file = File(srcLib.join('android').join('arm64').join('libtag.so'));
+        final zipPath = srcLib.join('android').join('arm64-v8a.zip');
+        file = File(assets.join('android').join('arm64-v8a').join('libtag.so'));
+        await extractLib(zipPath, file);
       }
     }
 
