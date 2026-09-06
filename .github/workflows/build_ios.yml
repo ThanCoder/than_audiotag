@@ -1,0 +1,91 @@
+name: Build iOS Native Library
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    name: Build iOS XCFramework
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Clone TagLib
+      run: |
+        git clone \
+          --depth 1 \
+          --branch v1.13.1 \
+          https://github.com/taglib/taglib.git \
+          taglib-src
+
+    # ============================================================
+    # iPhone Device ARM64
+    # ============================================================
+
+    - name: Build iOS Device
+      run: |
+        cmake \
+          -S taglib-src \
+          -B build-ios-device \
+          -DCMAKE_SYSTEM_NAME=iOS \
+          -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_BINDINGS=ON \
+          -DBUILD_TESTING=OFF \
+          -DBUILD_EXAMPLES=OFF
+
+        cmake --build build-ios-device --parallel
+
+    # ============================================================
+    # iOS Simulator
+    # ============================================================
+
+    - name: Build iOS Simulator
+      run: |
+        cmake \
+          -S taglib-src \
+          -B build-ios-simulator \
+          -DCMAKE_SYSTEM_NAME=iOS \
+          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_BINDINGS=ON \
+          -DBUILD_TESTING=OFF \
+          -DBUILD_EXAMPLES=OFF
+
+        cmake --build build-ios-simulator --parallel
+
+    # ============================================================
+    # Create XCFramework
+    # ============================================================
+
+    - name: Create XCFramework
+      run: |
+        mkdir -p release
+
+        xcodebuild \
+          -create-xcframework \
+          -library build-ios-device/taglib/libtag.a \
+          -headers taglib-src/bindings/c \
+          -library build-ios-simulator/taglib/libtag.a \
+          -headers taglib-src/bindings/c \
+          -output release/TagLib.xcframework
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: taglib-ios
+        path: release/
