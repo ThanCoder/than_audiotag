@@ -25,7 +25,8 @@ jobs:
       run: |
         git clone \
           --depth 1 \
-          --branch v1.13.1 \
+          --branch v2.3.1 \
+          --recurse-submodules \
           https://github.com/taglib/taglib.git \
           taglib-src
 

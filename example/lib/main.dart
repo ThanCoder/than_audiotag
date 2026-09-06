@@ -25,7 +25,7 @@ class _MyAppState extends State<MyApp> {
   FloatingActionButton _btn() {
     return FloatingActionButton(
       onPressed: () async {
-        final dir = Directory('/home/thancoder/Music');
+        final dir = Directory('/home/thancoder/Downloads/Music');
 
         final list = <String>[];
         for (var f in dir.listSync()) {
