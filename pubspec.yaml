@@ -13,6 +13,7 @@ environment:
 
 dependencies:
   android_libcpp_shared: ^0.2.1
+  archive: ^4.2.0
   code_assets: ^1.2.1
   ffi: ^2.2.0
   hooks: ^2.0.0

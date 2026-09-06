@@ -20,9 +20,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup CMake
-      uses: lukka/get-cmake@latest
-
     - name: Clone TagLib
       shell: bash
       run: |
@@ -38,7 +35,9 @@ jobs:
         cmake \
           -S taglib-src \
           -B build \
-          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -G "Visual Studio 18 2026" \
+          -A x64 \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DBUILD_SHARED_LIBS=OFF \
           -DBUILD_BINDINGS=ON \
           -DBUILD_TESTING=OFF \
@@ -47,9 +46,23 @@ jobs:
     - name: Build
       shell: bash
       run: |
-        cmake --build build --config MinSizeRel --parallel
+        cmake \
+          --build build \
+          --config MinSizeRel \
+          --parallel
 
-    - name: Prepare DLL
+    - name: Find build outputs
+      shell: pwsh
+      run: |
+        Write-Host "=== Static libraries ==="
+
+        Get-ChildItem `
+          -Path build `
+          -Recurse `
+          -Include *.lib,*.dll `
+          | Select-Object FullName
+
+    - name: Create release directory
       shell: pwsh
       run: |
         New-Item `
@@ -57,17 +70,18 @@ jobs:
           -Force `
           -Path release/windows/x86_64
 
-        Copy-Item `
-          build/bindings/c/MinSizeRel/tag_c.dll `
-          release/windows/x86_64/tag.dll
-
-    - name: Show files
+    - name: Show TagLib C binding
       shell: pwsh
       run: |
-        Get-ChildItem -Recurse release
+        Get-ChildItem `
+          -Path build `
+          -Recurse `
+          -Include tag_c.lib,libtag.lib `
+          | Select-Object FullName
 
-    - name: Upload artifact
+    - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: taglib-windows-x86_64
-        path: release/
+        name: taglib-windows-x86_64-build
+        path: |
+          build/**/*.lib
