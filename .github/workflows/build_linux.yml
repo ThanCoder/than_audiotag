@@ -1,0 +1,98 @@
+name: Build Linux Native Library
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux x86_64
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          git \
+          zlib1g-dev
+
+    - name: Clone TagLib
+      run: |
+        git clone \
+          --depth 1 \
+          --branch v1.13.1 \
+          https://github.com/taglib/taglib.git \
+          taglib-src
+
+    - name: Configure
+      run: |
+        mkdir build
+        cd build
+
+        cmake ../taglib-src \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_BINDINGS=ON \
+          -DBUILD_TESTING=OFF \
+          -DBUILD_EXAMPLES=OFF \
+          -DCMAKE_C_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections" \
+          -DCMAKE_CXX_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections"
+
+    - name: Build
+      run: |
+        cd build
+
+        cmake --build . -j$(nproc)
+
+    - name: Create shared library
+      run: |
+        cd build
+
+        g++ -shared \
+          -Wl,--whole-archive \
+          bindings/c/libtag_c.a \
+          taglib/libtag.a \
+          -Wl,--no-whole-archive \
+          -lz \
+          -o libtag.so
+
+    - name: Strip library
+      run: |
+        strip --strip-unneeded build/libtag.so
+
+    - name: Verify library
+      run: |
+        ls -lh build/libtag.so
+
+        echo "Exported symbols:"
+        nm -D --defined-only build/libtag.so | grep tag_ || true
+
+        echo "Library info:"
+        file build/libtag.so
+
+    - name: Prepare artifact
+      run: |
+        mkdir -p release/linux/x86_64
+
+        cp build/libtag.so \
+          release/linux/x86_64/libtag.so
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: taglib-linux-x86_64
+        path: release/

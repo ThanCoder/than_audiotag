@@ -1,0 +1,141 @@
+name: Build Android Native Library
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android Libraries
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          git
+
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r27c
+        local-cache: true
+
+    - name: Clone TagLib
+      run: |
+        git clone \
+          --depth 1 \
+          --branch v1.13.1 \
+          https://github.com/taglib/taglib.git \
+          taglib-src
+
+    # ============================================================
+    # Android ARM64
+    # ============================================================
+
+    - name: Build arm64-v8a
+      run: |
+        mkdir build-arm64
+        cd build-arm64
+
+        cmake ../taglib-src \
+          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-21 \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_BINDINGS=ON \
+          -DBUILD_TESTING=OFF \
+          -DBUILD_EXAMPLES=OFF \
+          -DCMAKE_C_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections" \
+          -DCMAKE_CXX_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections"
+
+        cmake --build . -j$(nproc)
+
+        "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++" \
+          --target=aarch64-linux-android21 \
+          -shared \
+          -Wl,--whole-archive \
+          bindings/c/libtag_c.a \
+          taglib/libtag.a \
+          -Wl,--no-whole-archive \
+          -lz \
+          -o libtag.so
+
+        "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" \
+          --strip-unneeded \
+          libtag.so
+
+        file libtag.so
+        ls -lh libtag.so
+
+    # ============================================================
+    # Android ARM32
+    # ============================================================
+
+    - name: Build armeabi-v7a
+      run: |
+        mkdir build-arm
+        cd build-arm
+
+        cmake ../taglib-src \
+          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+          -DANDROID_ABI=armeabi-v7a \
+          -DANDROID_PLATFORM=android-21 \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_BINDINGS=ON \
+          -DBUILD_TESTING=OFF \
+          -DBUILD_EXAMPLES=OFF \
+          -DCMAKE_C_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections" \
+          -DCMAKE_CXX_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections"
+
+        cmake --build . -j$(nproc)
+
+        "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++" \
+          --target=armv7a-linux-androideabi21 \
+          -shared \
+          -Wl,--whole-archive \
+          bindings/c/libtag_c.a \
+          taglib/libtag.a \
+          -Wl,--no-whole-archive \
+          -lz \
+          -o libtag.so
+
+        "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" \
+          --strip-unneeded \
+          libtag.so
+
+        file libtag.so
+        ls -lh libtag.so
+
+    - name: Prepare artifacts
+      run: |
+        mkdir -p release/android/arm64-v8a
+        mkdir -p release/android/armeabi-v7a
+
+        cp build-arm64/libtag.so \
+          release/android/arm64-v8a/libtag.so
+
+        cp build-arm/libtag.so \
+          release/android/armeabi-v7a/libtag.so
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: taglib-android
+        path: release/
