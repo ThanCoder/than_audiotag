@@ -14,7 +14,7 @@ ThanAudiotagBindings getTag({String? libPath}) {
     return ThanAudiotagBindings(DynamicLibrary.open(libPath));
   }
 
-  final dylib = DynamicLibrary.open('libtag.so');
+  final dylib = DynamicLibrary.open('libthan_audiotag.so');
 
   // final dylib = DynamicLibrary.open(
   //   '/home/thancoder/projects/dart_plugins/than_audiotag/.dart_tool/native_assets/linux/libtag.so',
