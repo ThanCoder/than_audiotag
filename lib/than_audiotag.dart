@@ -1,5 +1,6 @@
 import 'dart:ffi';
 
+import 'package:than_audiotag/keys.dart';
 import 'package:than_audiotag/than_audiotag_bindings_generated.dart';
 
 export 'core/chatgpt_native/index.dart';
@@ -14,7 +15,7 @@ ThanAudiotagBindings getTag({String? libPath}) {
     return ThanAudiotagBindings(DynamicLibrary.open(libPath));
   }
 
-  final dylib = DynamicLibrary.open('libthan_audiotag.so');
+  final dylib = DynamicLibrary.open(libName);
 
   // final dylib = DynamicLibrary.open(
   //   '/home/thancoder/projects/dart_plugins/than_audiotag/.dart_tool/native_assets/linux/libtag.so',

@@ -1,0 +1,1 @@
+const String libName = 'libthan_audiotag.so';

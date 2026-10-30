@@ -17,6 +17,7 @@ dependencies:
   code_assets: ^1.2.1
   ffi: ^2.2.0
   hooks: ^2.0.0
+  path: ^1.9.1
 
 dev_dependencies:
   ffigen: ^21.0.0
