@@ -8,48 +8,45 @@ import 'package:hooks/hooks.dart';
 import 'package:path/path.dart' as p;
 import 'package:than_audiotag/keys.dart';
 
-const String linuxLibUrl =
-    'https://github.com/ThanCoder/than_audiotag/releases/download/than_audiotag_lib/than_audiotag_linux-64.zip';
-const String androidArmLibUrl =
-    'https://github.com/ThanCoder/than_audiotag/releases/download/than_audiotag_lib/than_audiotag_android_arm.zip';
-const String androidArm64LibUrl =
-    'https://github.com/ThanCoder/than_audiotag/releases/download/than_audiotag_lib/than_audiotag_android_arm64.zip';
-
-const String windowLibUrl = '';
-
 void main(List<String> args) async {
   await build(args, (input, output) async {
     final packageName = input.packageName;
     final packageRootDir = input.packageRoot.toFilePath();
     final sourceLib = p.join(packageRootDir, '.dart_tool', 'native_assets');
 
-    final ffmpegLib = LibArchiveConfig.create(
-      input.config.code,
-      sourceLib,
-      libName,
+    final targetLib = ArchiveTarget.create(input.config.code);
+    final libFile = File(
+      p.join(sourceLib, targetLib.platform, targetLib.arch, libName),
     );
 
-    await extractLib(ffmpegLib);
+    await extractLib(targetLib, sourceLib: sourceLib, libFile: libFile);
 
     output.assets.code.add(
       .new(
         package: packageName,
         name: libName,
         linkMode: DynamicLoadingBundled(),
-        file: ffmpegLib.libOutFile.uri,
+        file: libFile.uri,
       ),
     );
   });
 }
 
-Future<void> extractLib(LibArchiveConfig config) async {
-  if (config.libOutFile.existsSync()) return;
-  if (config.libZipFile.existsSync()) {
-    await extractZip(config.libZipFile, config.libOutFile.parent);
+Future<void> extractLib(
+  ArchiveTarget target, {
+  required String sourceLib,
+  required File libFile,
+}) async {
+  final zipFile = File(
+    p.join(sourceLib, '${target.platform}-${target.arch}.zip'),
+  );
+  if (libFile.existsSync()) return;
+  if (zipFile.existsSync()) {
+    await extractZip(zipFile, target: target, output: libFile);
     return;
   }
-  await downloadLib(config.downloadUrl, config.libZipFile);
-  await extractZip(config.libZipFile, config.libOutFile.parent);
+  await downloadLib(target.downloadUrl, zipFile);
+  await extractZip(zipFile, target: target, output: libFile);
 }
 
 Future<void> downloadLib(String url, File output) async {
@@ -86,74 +83,85 @@ Future<void> downloadLib(String url, File output) async {
   }
 }
 
-Future<void> extractZip(File input, Directory outputFolder) async {
+Future<void> extractZip(
+  File input, {
+  required ArchiveTarget target,
+  required File output,
+}) async {
   final bytes = input.readAsBytesSync();
   final archive = ZipDecoder().decodeBytes(bytes);
-  for (final entry in archive) {
-    if (entry.isFile && entry.name.endsWith('.so')) {
-      outputFolder.createSync(recursive: true);
-      File(
-        p.join(outputFolder.path, entry.name),
-      ).writeAsBytes(entry.content, flush: true);
-    }
+  final member = archive.findFile(target.libPath);
+  if (member == null) {
+    throw Exception(
+      'lib archive ${input.path} does not contain ${target.libPath}.',
+    );
   }
+
+  await output.parent.create(recursive: true);
+  await output.writeAsBytes(member.content as List<int>);
 }
 
-class LibArchiveConfig {
-  const LibArchiveConfig({
+class ArchiveTarget {
+  const ArchiveTarget({
     required this.config,
-    required this.libOutFile,
     required this.downloadUrl,
-    required this.libZipFile,
+    required this.libPath,
+    required this.libName,
+    required this.arch,
+    required this.platform,
   });
 
   final CodeConfig config;
-  final File libOutFile;
-  final File libZipFile;
   final String downloadUrl;
+  final String libPath;
+  final String libName;
+  final String arch;
+  final String platform;
 
-  factory LibArchiveConfig.create(
-    CodeConfig cf,
-    String sourceLib,
-    String libName,
-  ) {
+  factory ArchiveTarget.create(CodeConfig cf) {
     final targetOS = cf.targetOS;
     final targetArch = cf.targetArchitecture;
 
     if (cf.targetOS == .linux) {
-      final libOutPath = File(p.join(sourceLib, targetOS.name, libName));
       return .new(
         config: cf,
-        libOutFile: libOutPath,
         downloadUrl: linuxLibUrl,
-        libZipFile: File(p.join(sourceLib, targetOS.name, 'linux.zip')),
+        libPath: 'libthan_audiotag.so',
+        libName: 'libthan_audiotag.so',
+        arch: 'x64',
+        platform: targetOS.name,
       );
     }
     if (cf.targetOS == .windows) {
-      final libOutPath = File(p.join(sourceLib, targetOS.name, libName));
       return .new(
         config: cf,
-        libOutFile: libOutPath,
         downloadUrl: windowLibUrl,
-        libZipFile: File(p.join(sourceLib, targetOS.name, 'window.zip')),
+        libPath: 'libthan_audiotag.dll',
+        libName: 'libthan_audiotag.dll',
+        arch: 'x64',
+        platform: targetOS.name,
       );
     }
     if (targetOS == .android) {
-      final androidLibPath = p.join(sourceLib, targetOS.name);
-      final libOutFile = File(p.join(androidLibPath, targetArch.name, libName));
-      final downloadUrl = switch (targetArch) {
+      final url = switch (targetArch) {
         .arm => androidArmLibUrl,
         .arm64 => androidArm64LibUrl,
-        _ => UnsupportedError('error: ${targetOS.name} - ${targetArch.name}'),
+        _ => throw UnsupportedError(
+          'Not Supported Url: OS:${targetOS.name} - Arch:${targetArch.name}',
+        ),
       };
       return .new(
         config: cf,
-        libOutFile: libOutFile,
-        downloadUrl: downloadUrl as String,
-        libZipFile: File(p.join(androidLibPath, '${targetArch.name}.zip')),
+        downloadUrl: url,
+        libPath: 'libthan_audiotag.so',
+        libName: 'libthan_audiotag.so',
+        arch: targetArch.name,
+        platform: targetOS.name,
       );
     }
 
-    throw UnsupportedError('Not Supported: ${targetArch.name}');
+    throw UnsupportedError(
+      'Not Supported: OS:${targetOS.name} - Arch:${targetArch.name}',
+    );
   }
 }

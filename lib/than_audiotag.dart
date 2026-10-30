@@ -10,16 +10,12 @@ export 'core/my_native/workers/tag_picture_worker.dart';
 ///
 /// custom path => `getTag(libPath: 'custom path');`
 ///
-ThanAudiotagBindings getTag({String? libPath}) {
+ThanAudiotagBindings getTagLib({String? libPath}) {
   if (libPath != null) {
     return ThanAudiotagBindings(DynamicLibrary.open(libPath));
   }
 
   final dylib = DynamicLibrary.open(libName);
-
-  // final dylib = DynamicLibrary.open(
-  //   '/home/thancoder/projects/dart_plugins/than_audiotag/.dart_tool/native_assets/linux/libtag.so',
-  // );
 
   return ThanAudiotagBindings(dylib);
 }

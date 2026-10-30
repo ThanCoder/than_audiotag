@@ -14,7 +14,7 @@ part 'props/au_picture.dart';
 part 'tag_utils.dart';
 part 'props/au_picture_writer.dart';
 
-final _lib = getTag();
+final _lib = getTagLib();
 
 class TTag {
   bool _opened = false;

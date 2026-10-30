@@ -1,0 +1,42 @@
+TAGLIB_DST_DIR="build/window"
+TAGLIB_NAME="libthan_audiotag.dll"
+
+# CMake ဖြင့် MinGW cross-compile လုပ်ခြင်း (zlib လိုချင်ရင် libz-mingw-w64-dev ထည့်ပါ၊ မလိုရင် -DWITH_ZLIB=OFF သုံးပါ)
+cmake -B $TAGLIB_DST_DIR \
+  -DCMAKE_SYSTEM_NAME=Windows \
+  -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+  -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DVISIBILITY_HIDDEN=ON \
+  -DBUILD_TESTING=OFF \
+  -DBUILD_EXAMPLES=OFF \
+  -DBUILD_BINDINGS=ON \
+  -DWITH_ZLIB=OFF \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="-Os -ffunction-sections -fdata-sections" \
+  -DCMAKE_CXX_FLAGS="-Os -ffunction-sections -fdata-sections"
+
+cmake --build $TAGLIB_DST_DIR --config Release
+cmake --build $TAGLIB_DST_DIR -j$(nproc)
+
+cmake --install $TAGLIB_DST_DIR --config Release --prefix "$TAGLIB_DST_DIR/dist"
+cmake --install $TAGLIB_DST_DIR --config Release --prefix "$TAGLIB_DST_DIR/dist" --strip
+
+DIST="$(pwd)/$TAGLIB_DST_DIR/dist"
+OUTPUT_LIB="$(pwd)/$TAGLIB_DST_DIR/dist/$TAGLIB_NAME"
+
+# C-bindings တွေ symbols ပါလာစေရန်နှင့် Windows .dll ထုတ်ရန် 
+x86_64-w64-mingw32-g++ -shared \
+  -Wl,--whole-archive \
+  "$DIST/lib/libtag_c.a" \
+  "$DIST/lib/libtag.a" \
+  -Wl,--no-whole-archive \
+  -Wl,--out-implib,"$DIST/libthan_audiotag.lib" \
+  -o "$OUTPUT_LIB"
+
+x86_64-w64-mingw32-strip --strip-unneeded "$OUTPUT_LIB"
+
+ls -lh "$OUTPUT_LIB"
+
+# Symbols များကို စစ်ဆေးရန် (Windows .dll ဖြစ်므로 nm ကို သုံးနိုင်သည်)
+x86_64-w64-mingw32-nm --defined-only "$OUTPUT_LIB" | grep tag_

@@ -17,6 +17,17 @@ class TagPictureWorker {
   Isolate? _isolate;
   SendPort? _workerPort;
   int _calledCount = 0;
+  bool _showDebugLog = false;
+  Duration _closeDuration = const Duration(seconds: 5);
+
+  ///config
+  void setConfig({
+    bool showDebugLog = false,
+    Duration closeDuration = const Duration(seconds: 5),
+  }) {
+    _showDebugLog = showDebugLog;
+    _closeDuration = closeDuration;
+  }
 
   /// read && save
   Future<Result<bool, String>> generate(
@@ -122,14 +133,18 @@ class TagPictureWorker {
     _isolate = await Isolate.spawn(_tagPicturBgWroker, rec.sendPort);
     _workerPort = await rec.first as SendPort;
     rec.close();
-    print('[TagPictureWorker:_initIsolate]: isolate initalized!');
+    if (_showDebugLog) {
+      print('[TagPictureWorker:_initIsolate]: isolate initalized!');
+    }
   }
 
   Timer? _closeTimer;
   void _autoCloseTimer() {
     _closeTimer?.cancel();
-    print('[TagPictureWorker:_autoCloseTimer]: 5 secs waiting.....');
-    _closeTimer = Timer(Duration(seconds: 5), close);
+    if (_showDebugLog) {
+      print('[TagPictureWorker:_autoCloseTimer]: 5 secs waiting.....');
+    }
+    _closeTimer = Timer(_closeDuration, close);
   }
 
   Future<void> close({bool waitClose = true}) async {
@@ -152,7 +167,9 @@ class TagPictureWorker {
       _isolate = null;
       _workerPort = null;
       _completer = null;
-      print('[TagPictureWorker:close]: isolate closed!');
+      if (_showDebugLog) {
+        print('[TagPictureWorker:close]: isolate closed!');
+      }
     }
   }
 }

@@ -1,0 +1,37 @@
+TAGLIB_DST_DIR="build/linux"
+TAGLIB_NAME="libthan_audiotag.so"
+
+cmake -B $TAGLIB_DST_DIR \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DVISIBILITY_HIDDEN=ON \
+  -DBUILD_TESTING=OFF \
+  -DBUILD_EXAMPLES=OFF \
+  -DBUILD_BINDINGS=ON \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections" \
+  -DCMAKE_CXX_FLAGS="-fPIC -Os -ffunction-sections -fdata-sections"
+
+cmake --build $TAGLIB_DST_DIR --config Release
+cmake --build $TAGLIB_DST_DIR -j$(nproc)
+
+cmake --install $TAGLIB_DST_DIR --config Release --prefix "$TAGLIB_DST_DIR/dist"
+cmake --install $TAGLIB_DST_DIR --config Release --prefix "$TAGLIB_DST_DIR/dist" --strip
+
+DIST="$(pwd)/$TAGLIB_DST_DIR/dist"
+OUTPUT_LIB="$(pwd)/$TAGLIB_DST_DIR/dist/$TAGLIB_NAME"
+
+g++ -shared \
+  -Wl,--whole-archive \
+  "$DIST/lib/libtag_c.a" \
+  "$DIST/lib/libtag.a" \
+  -Wl,--no-whole-archive \
+  -lz \
+  -o $OUTPUT_LIB
+
+strip --strip-unneeded $OUTPUT_LIB
+
+
+
+ls -lh $OUTPUT_LIB
+
+nm -D --defined-only $OUTPUT_LIB | grep tag_

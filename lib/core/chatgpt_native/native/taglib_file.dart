@@ -3,7 +3,7 @@ import 'package:ffi/ffi.dart';
 import 'package:than_audiotag/than_audiotag.dart';
 import 'package:than_audiotag/than_audiotag_bindings_generated.dart';
 
-final lib = getTag();
+final lib = getTagLib();
 
 class TagLibFile {
   final ffi.Pointer<TagLib_File> pointer;

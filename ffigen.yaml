@@ -7,9 +7,11 @@ description: |
 output: 'lib/than_audiotag_bindings_generated.dart'
 headers:
   entry-points:
-    - 'src/tag_c.h'
+  # - 'src/tag_c.h'
+  - 'src/taglib_include/tag_c.h'
   include-directives:
-    - 'src/tag_c.h'
+  # - 'src/tag_c.h'
+  - 'src/taglib_include/*.h'
 # ffi-native:
 comments:
   style: any
