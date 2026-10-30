@@ -11,7 +11,7 @@ platforms:
 
 
 environment:
-  sdk: ^3.12.0
+  sdk: ^3.13.0
 
 dependencies:
   android_libcpp_shared: ^0.3.1
